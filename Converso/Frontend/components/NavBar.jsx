@@ -127,9 +127,9 @@ export default function NavBar() {
         <Link
           href="/chat"
           className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary-600 to-primary-500 text-white flex items-center justify-center shadow-md shadow-primary-500/20 hover:scale-105 transition-transform"
-          title="PeerTalks"
+          title="Converso"
         >
-          <span className="font-bold text-lg tracking-tight">P</span>
+          <span className="font-bold text-lg tracking-tight">C</span>
         </Link>
       </div>
 

@@ -1,30 +1,24 @@
-"use client"
+"use client";
 
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ThreeDots } from "react-loader-spinner";
-import { HiOutlineUser, HiOutlineLockClosed, HiEye, HiEyeSlash } from "react-icons/hi2";
+import { HiOutlineUser, HiOutlineLockClosed } from "react-icons/hi2";
 import { apiUrl } from "@/lib/api";
 
-export default function Login() {
-  const router = useRouter();
+export default function Register() {
+  const [errorClient, setErrorClient] = useState(false);
+  const [errorServer, setErrorServer] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const router = useRouter();
 
-  // Clean up any sensitive query params that may have leaked into the URL
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.location.search) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
-
-  const login = (event) => {
+  const submit = (event) => {
     event.preventDefault();
     setLoading(true);
-    setErrorMessage("");
+    setErrorClient(false);
+    setErrorServer("");
 
     const formData = new FormData(event.target);
     const formObject = {};
@@ -32,23 +26,26 @@ export default function Login() {
       formObject[key] = value;
     });
 
+    if (formObject.password !== formObject.cpassword) {
+      setErrorClient(true);
+      setLoading(false);
+      return;
+    }
+
     axios
-      .post(apiUrl("/api/login"), {
-        username: formObject.username,
-        password: formObject.password,
-      })
+      .post(apiUrl("/api/register"), formObject)
       .then((response) => {
-        if (response.data.success) {
-          localStorage.setItem("username", formObject.username);
-          localStorage.setItem("password", formObject.password);
-          router.push("/chat");
+        if (response.data.error) {
+          setErrorServer(response.data.error);
         } else {
-          setErrorMessage(response.data.error || "Incorrect username or password. Please try again.");
+          localStorage.setItem("username", response.data.username);
+          localStorage.setItem("password", response.data.password);
+          router.push("/register/setprofile");
         }
       })
       .catch((err) => {
-        console.error("Login network error:", err);
-        setErrorMessage(
+        console.error("Register network error:", err);
+        setErrorServer(
           err.response?.data?.error ||
           "Network Error: Could not connect to backend server. Make sure the backend is running!"
         );
@@ -60,35 +57,41 @@ export default function Login() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-zinc-50 px-4 py-12 relative overflow-hidden">
-      {/* Background Subtle Gradient Blobs */}
+      {/* Ambient background blur */}
       <div className="absolute top-1/4 -left-32 w-96 h-96 bg-primary-100/50 rounded-full blur-3xl pointer-events-none -z-10" />
       <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-indigo-100/50 rounded-full blur-3xl pointer-events-none -z-10" />
 
       <div className="w-full max-w-md bg-white rounded-2xl border border-zinc-200/80 shadow-dropdown p-8 sm:p-10 animate-fadeIn">
-        {/* Brand Icon & Heading */}
+        {/* Brand & Heading */}
         <div className="flex flex-col items-center text-center mb-8">
           <Link
             href="/"
             className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary-600 to-primary-500 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-primary-500/20 mb-4 hover:scale-105 transition-transform"
           >
-            P
+            C
           </Link>
           <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">
-            Welcome back
+            Create an account
           </h1>
           <p className="text-sm text-zinc-500 mt-1.5">
-            Log in to continue chatting with your peers
+            Connect and start chatting with peers in real time
           </p>
         </div>
 
-        {/* Error Alert */}
-        {errorMessage && (
+        {/* Alerts */}
+        {errorServer && (
           <div className="mb-6 p-3.5 bg-rose-50 border border-rose-200/70 rounded-xl text-xs font-medium text-rose-700 flex items-center justify-center text-center animate-wiggle">
-            {errorMessage}
+            {errorServer}
           </div>
         )}
 
-        <form method="POST" action="#" onSubmit={login} className="space-y-4">
+        {errorClient && (
+          <div className="mb-6 p-3.5 bg-rose-50 border border-rose-200/70 rounded-xl text-xs font-medium text-rose-700 flex items-center justify-center animate-wiggle">
+            Passwords do not match! Please check again.
+          </div>
+        )}
+
+        <form method="POST" action="#" onSubmit={submit} className="space-y-4">
           {/* Username */}
           <div>
             <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-1.5">
@@ -100,8 +103,8 @@ export default function Login() {
                 type="text"
                 name="username"
                 required
-                placeholder="Enter your username"
-                onChange={() => setError(false)}
+                placeholder="Choose a username"
+                onChange={() => setErrorServer(false)}
                 className="w-full bg-zinc-50/70 border border-zinc-200 rounded-xl pl-11 pr-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
               />
             </div>
@@ -115,24 +118,31 @@ export default function Login() {
             <div className="relative flex items-center">
               <HiOutlineLockClosed className="absolute left-3.5 w-5 h-5 text-zinc-400 pointer-events-none" />
               <input
-                type={showPassword ? "text" : "password"}
+                type="password"
                 name="password"
                 required
-                placeholder="••••••••"
-                onChange={() => setError(false)}
-                className="w-full bg-zinc-50/70 border border-zinc-200 rounded-xl pl-11 pr-11 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                placeholder="Create a password"
+                onChange={() => setErrorClient(false)}
+                className="w-full bg-zinc-50/70 border border-zinc-200 rounded-xl pl-11 pr-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3.5 text-zinc-400 hover:text-zinc-600 transition-colors"
-              >
-                {showPassword ? (
-                  <HiEyeSlash className="w-5 h-5" />
-                ) : (
-                  <HiEye className="w-5 h-5" />
-                )}
-              </button>
+            </div>
+          </div>
+
+          {/* Confirm Password */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-1.5">
+              Confirm Password
+            </label>
+            <div className="relative flex items-center">
+              <HiOutlineLockClosed className="absolute left-3.5 w-5 h-5 text-zinc-400 pointer-events-none" />
+              <input
+                type="password"
+                name="cpassword"
+                required
+                placeholder="Repeat password"
+                onChange={() => setErrorClient(false)}
+                className="w-full bg-zinc-50/70 border border-zinc-200 rounded-xl pl-11 pr-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+              />
             </div>
           </div>
 
@@ -145,19 +155,19 @@ export default function Login() {
             {loading ? (
               <ThreeDots height={20} width={36} color="#ffffff" visible={true} />
             ) : (
-              "Sign In"
+              "Create Account"
             )}
           </button>
         </form>
 
-        {/* Footer link */}
+        {/* Footer */}
         <div className="mt-8 text-center text-xs text-zinc-500">
-          Don't have an account?{" "}
+          Already have an account?{" "}
           <Link
-            href="/register"
+            href="/login"
             className="font-semibold text-primary-600 hover:text-primary-700 transition-colors"
           >
-            Create one now
+            Log in instead
           </Link>
         </div>
       </div>

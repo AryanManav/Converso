@@ -34,7 +34,7 @@ export default function Features() {
             Features
           </span>
           <h2 className="text-3xl sm:text-4xl font-bold text-zinc-900 tracking-tight mt-2">
-            Why choose PeerTalks?
+            Why choose Converso?
           </h2>
           <p className="mt-3 text-zinc-600 text-sm sm:text-base">
             Engineered from the ground up for reliable real-time communication without unnecessary complexity.

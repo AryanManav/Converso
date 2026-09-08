@@ -41,7 +41,7 @@ async function updateLastSeen(username) {
 app.get("/", (req, res) => {
   res.json({
     status: "ok",
-    message: "PeerTalks Backend API (MongoDB + Mongoose)",
+    message: "Converso Backend API (MongoDB + Mongoose)",
     timestamp: new Date().toISOString(),
   });
 });

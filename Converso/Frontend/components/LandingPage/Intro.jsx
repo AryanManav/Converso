@@ -52,7 +52,7 @@ export default function Intro() {
 
             {/* Subtext */}
             <p className="text-base sm:text-lg text-zinc-600 font-normal leading-relaxed max-w-xl mb-8">
-              PeerTalks is a minimal, distraction-free messaging space designed for peers, students, and collaborators. Fast socket delivery, instant presence, and zero clutter.
+              Converso is a minimal, distraction-free messaging and calling space designed for peers, students, and collaborators. Real-time WebRTC audio & video, fast socket delivery, and zero clutter.
             </p>
 
             {/* CTA Buttons */}

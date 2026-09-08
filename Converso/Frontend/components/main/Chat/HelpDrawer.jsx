@@ -22,8 +22,8 @@ export default function HelpDrawer({ isOpen, onClose }) {
     },
     {
       icon: <HiOutlineChatBubbleLeftRight className="w-5 h-5 text-emerald-600" />,
-      title: "Real-time messaging",
-      desc: "PeerTalks uses Socket.IO. Messages, live online status, and typing indicators update instantaneously without page reloads.",
+      title: "Real-time messaging & calling",
+      desc: "Converso uses WebRTC and Socket.IO. Voice calls, video calls, messages, live online status, and typing indicators update instantaneously.",
     },
     {
       icon: <HiOutlineUser className="w-5 h-5 text-indigo-600" />,
@@ -69,7 +69,7 @@ export default function HelpDrawer({ isOpen, onClose }) {
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         <div className="bg-primary-50/60 dark:bg-primary-950/40 border border-primary-100/80 dark:border-primary-900/50 rounded-2xl p-4 text-xs text-primary-950 dark:text-primary-200">
-          <p className="font-semibold text-primary-900 dark:text-primary-100">Welcome to PeerTalks!</p>
+          <p className="font-semibold text-primary-900 dark:text-primary-100">Welcome to Converso!</p>
           <p className="text-primary-700/90 dark:text-primary-300 mt-1 leading-relaxed">
             Everything is accessible right inside this chat window — search peers, manage friend requests, and edit your profile without navigating away.
           </p>

@@ -1,6 +1,6 @@
-# PeerTalks: Real-Time Peer-to-Peer Chat Platform
+# Converso: Real-Time Messaging & Calling Platform
 
-PeerTalks is a modern real-time messaging application that enables users to connect, chat, and build meaningful conversations with peers. Built with Next.js and Socket.IO, it provides instant messaging, friend requests, notifications, and a seamless chat experience.
+Converso is a modern real-time communication platform that enables users to connect, chat, and make 1-on-1 audio and video calls. Built with Next.js, WebRTC, and Socket.IO, it provides instant messaging, peer-to-peer video calls, friend requests, and a seamless communication experience.
 
 ---
 

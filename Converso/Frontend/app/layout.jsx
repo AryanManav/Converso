@@ -4,8 +4,8 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 export const metadata = {
-  title: 'PeerTalks - Real-Time Peer Conversations',
-  description: 'A minimal, fast, real-time messaging platform connecting peers seamlessly.',
+  title: 'Converso - Real-Time Conversations & Calling',
+  description: 'A minimal, fast, real-time messaging and video calling platform connecting peers seamlessly.',
 }
 
 export default function RootLayout({ children }) {
