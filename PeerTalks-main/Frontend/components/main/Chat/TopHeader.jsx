@@ -1,18 +1,22 @@
 "use client"
 import Profilepic from "@/components/Profilepic";
-import ProfileLink from "@/components/utils/ProfileLink";
+import Link from "next/link";
 import axios from "axios";
 import { useEffect, useState, useCallback } from "react";
 import { io } from "socket.io-client";
+import { HiOutlineUserCircle } from "react-icons/hi2";
+import { apiUrl } from "@/lib/api";
+import ContactInfoDrawer from "./ContactInfoDrawer";
 
-export default function TopHeader({chatid}) {
+export default function TopHeader({ chatid }) {
   const [user, setUser] = useState({});
   const [isOnline, setIsOnline] = useState(false);
   const [lastSeen, setLastSeen] = useState(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Format last seen time
   const formatLastSeen = (lastSeenDate) => {
-    if (!lastSeenDate) return "offline";
+    if (!lastSeenDate) return "Offline";
     
     const now = new Date();
     const lastSeen = new Date(lastSeenDate);
@@ -22,137 +26,168 @@ export default function TopHeader({chatid}) {
     
     // Today
     if (diffDays === 0) {
-      if (diffMins < 1) return "last seen just now";
-      if (diffMins < 60) return `last seen ${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-      return `last seen today at ${lastSeen.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+      if (diffMins < 1) return "Just now";
+      if (diffMins < 60) return `${diffMins}m ago`;
+      return `Today at ${lastSeen.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
     }
     
     // Yesterday
     if (diffDays === 1) {
-      return `last seen yesterday at ${lastSeen.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+      return `Yesterday at ${lastSeen.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
     }
     
     // Within a week
     if (diffDays < 7) {
-      return `last seen ${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+      return `${diffDays}d ago`;
     }
     
     // More than a week
-    return `last seen on ${lastSeen.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+    return `${lastSeen.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
   };
 
   // Fetch user status
   const fetchUserStatus = useCallback(async (username) => {
     try {
-      const response = await fetch(`/chat/api/user-status/${username}`);
+      const response = await fetch(apiUrl(`/api/user-status/${username}`));
       const data = await response.json();
-      
-      console.log(`Fetched status for ${username}:`, data);
-      setIsOnline(data.isOnline);
+      setIsOnline(Boolean(data.isOnline));
       setLastSeen(data.lastSeen);
     } catch (error) {
       console.error("Error fetching user status:", error);
     }
   }, []);
 
-  // First useEffect: Fetch user data
+  // Fetch chat user info
   useEffect(() => {
     const username = localStorage.getItem("username");
-    
-    // Fetch user details
+    if (!username) return;
+
     axios
-      .get(`/chat/api/chatuser?username=${username}&chatid=${chatid}`)
-      .then(function (response) {
+      .get(apiUrl(`/api/chat/chatuser?username=${username}&chatid=${chatid}`))
+      .then((response) => {
         const userData = response.data;
-        setUser(userData);
-        console.log("User loaded:", userData);
+        setUser(userData || {});
         
-        // Fetch initial status AFTER user is set
-        if (userData.username) {
+        if (userData?.username) {
           fetchUserStatus(userData.username);
         }
       })
-      .catch(function (error) {
-        console.log("Error loading user:", error);
+      .catch((error) => {
+        console.error("Error loading chat user:", error);
       });
   }, [chatid, fetchUserStatus]);
 
-  // Second useEffect: Setup Socket.IO (only after user is loaded)
+  // Setup Socket.IO for status synchronization
   useEffect(() => {
-    // Don't setup socket until user is loaded
-    if (!user.username) {
-      console.log("Waiting for user to load before setting up socket...");
-      return;
-    }
+    if (!user?.username) return;
 
-    console.log("Setting up socket for user:", user.username);
-
-    // Setup Socket.IO for real-time status updates
-    const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+    const BACKEND_URL = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
     const socket = io(BACKEND_URL, {
       transports: ['websocket', 'polling']
     });
 
     socket.on("connect", () => {
-      console.log("TopHeader socket connected");
-      
-      // Join the chat room to receive status updates
       const currentUser = localStorage.getItem("username");
       if (currentUser) {
         socket.emit("join-chat", { chatId: chatid, username: currentUser });
-        console.log("TopHeader joined chat room:", chatid);
       }
     });
 
-    // Listen for status changes
     socket.on("user-status-changed", (data) => {
       const { username: statusUsername, isOnline: userIsOnline } = data;
-      
-      console.log("=== STATUS CHANGE EVENT ===");
-      console.log("Event data:", data);
-      console.log("Current user being viewed:", user);
-      console.log("User username:", user?.username);
-      console.log("Status username:", statusUsername);
-      console.log("Does it match?", user?.username === statusUsername);
-      
-      // STRICT CHECK: Only update if user is fully loaded AND usernames match
-      if (user && user.username && statusUsername === user.username) {
-        console.log(`✅ Updating status for ${statusUsername} to ${userIsOnline ? 'online' : 'offline'}`);
+      if (user?.username && statusUsername === user.username) {
         setIsOnline(userIsOnline);
-        
-        // If they went offline, fetch their last seen
         if (!userIsOnline) {
           fetchUserStatus(statusUsername);
         }
-      } else {
-        console.log(`❌ Not updating - user not loaded or doesn't match`);
-        console.log(`   Current: ${user?.username}, Event: ${statusUsername}`);
       }
     });
 
     return () => {
-      console.log("Cleaning up socket...");
       socket.off("user-status-changed");
       socket.disconnect();
     };
-  }, [chatid, user, user.username, fetchUserStatus]);
+  }, [chatid, user, fetchUserStatus]);
+
+  const displayName = [user.fname, user.lname].filter(Boolean).join(" ") || user.username || "Peer";
 
   return (
-    <div className="relative flex items-center p-3 border-b border-gray-300 bg-white w-full">
-      <Profilepic gender={user.gender} className="object-cover w-10 h-10 rounded-full" />
-      <div className="ml-2 flex-1">
-        <ProfileLink 
-          fname={user.fname} 
-          lname={user.lname} 
-          username={user.username} 
-          className="block font-bold text-gray-600 capitalize" 
-        />
-        <div className="text-xs mt-0.5">
-          <span className="text-gray-500">
-            {isOnline ? 'online' : formatLastSeen(lastSeen)}
-          </span>
-        </div>
+    <>
+      <div className="h-16 px-6 border-b border-zinc-200/80 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md flex items-center justify-between shrink-0 select-none z-10 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+        {/* Clickable User Info Header */}
+        <button
+          type="button"
+          onClick={() => setIsDrawerOpen(true)}
+          className="flex items-center gap-3 text-left group hover:opacity-90 transition-opacity focus:outline-none"
+          title="Click to view contact info"
+        >
+          {/* Avatar with Status Pip */}
+          <div className="relative">
+            <Profilepic
+              gender={user.gender}
+              name={user.fname || user.username}
+              profilePic={user.profilePic}
+              className="w-10 h-10 shadow-xs group-hover:ring-2 ring-primary-500/40 rounded-full transition-all"
+            />
+            <span
+              className={`absolute bottom-0 right-0 w-3 h-3 rounded-full ring-2 ring-white dark:ring-zinc-900 ${
+                isOnline
+                  ? "bg-emerald-500 animate-pulseSubtle"
+                  : "bg-zinc-300 dark:bg-zinc-600"
+              }`}
+              title={isOnline ? "Online" : "Offline"}
+            />
+          </div>
+
+          {/* User Info */}
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 capitalize group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                {displayName}
+              </h2>
+              {user.username && (
+                <span className="text-xs text-zinc-400 dark:text-zinc-500 font-normal">
+                  @{user.username}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5 text-xs">
+              <span
+                className={`font-medium ${
+                  isOnline ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-400 dark:text-zinc-500"
+                }`}
+              >
+                {isOnline ? "Active now" : `Last seen ${formatLastSeen(lastSeen)}`}
+              </span>
+            </div>
+          </div>
+        </button>
+
+        {/* Action button */}
+        {user.username && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsDrawerOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors shadow-xs active:scale-95"
+              title="View Contact Info"
+            >
+              <HiOutlineUserCircle className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+              Contact info
+            </button>
+          </div>
+        )}
       </div>
-    </div>
+
+      {/* Slide-over Contact Info Drawer */}
+      <ContactInfoDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        user={user}
+        isOnline={isOnline}
+        lastSeenText={formatLastSeen(lastSeen)}
+      />
+    </>
   );
 }
+

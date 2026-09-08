@@ -216,7 +216,8 @@ CREATE TABLE USERS(
     gender ENUM('Male', 'Female', 'Other'),
     DOB VARCHAR(20),
     lastLogin DATE,
-    regDate DATE
+    regDate DATE,
+    last_seen DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE TABLE CHATS(

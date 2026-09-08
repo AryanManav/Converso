@@ -4,401 +4,656 @@ const { createServer } = require("http");
 const { Server } = require("socket.io");
 const express = require("express");
 const cors = require("cors");
-const { executeQuery } = require("./lib/db");
+require("./lib/db");
+
+const User = require("./models/User");
+const Chat = require("./models/Chat");
+const Message = require("./models/Message");
+const FriendRequest = require("./models/FriendRequest");
+const Notification = require("./models/Notification");
 
 const app = express();
 
-app.use(cors({
+app.use(
+  cors({
     origin: process.env.FRONTEND_URL || "*",
-    credentials: true
-}));
+    credentials: true,
+  })
+);
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 const onlineUsers = new Map();
 const userSessions = new Map();
 
 async function updateLastSeen(username) {
-    if (!username) return;
-
-    await executeQuery(
-        "UPDATE USERS SET last_seen = NOW() WHERE username = ?",
-        [username]
-    );
+  if (!username) return;
+  try {
+    await User.updateOne({ username }, { last_seen: new Date() });
+  } catch (err) {
+    console.error("Error updating last seen:", err);
+  }
 }
 
 app.get("/", (req, res) => {
-    res.json({
-        status: "ok",
-        message: "PeerTalks Backend API",
-        timestamp: new Date().toISOString()
-    });
+  res.json({
+    status: "ok",
+    message: "PeerTalks Backend API (MongoDB + Mongoose)",
+    timestamp: new Date().toISOString(),
+  });
 });
 
-app.get("/api/login", async (req, res) => {
-    const { username, password } = req.query;
-    const users = await executeQuery(
-        "SELECT * FROM USERS WHERE username = ?",
-        [username]
-    );
+// Authentication: Login (Supports POST and GET)
+const handleLogin = async (req, res) => {
+  try {
+    const username = (req.body?.username || req.query?.username || "").toLowerCase().trim();
+    const password = req.body?.password || req.query?.password;
 
-    if (users.error) return res.json(users);
+    if (!username || !password) {
+      return res.json({ success: false });
+    }
 
-    res.json({
-        success: users.length > 0 && users[0].password === password
-    });
-});
+    const user = await User.findOne({ username });
+    if (!user || user.password !== password) {
+      return res.json({ success: false });
+    }
 
+    res.json({ success: true, username: user.username });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+app.post("/api/login", handleLogin);
+app.get("/api/login", handleLogin);
+
+
+// Authentication: Register
 app.post("/api/register", async (req, res) => {
+  try {
     const { username, password } = req.body;
-    const response = await executeQuery(
-        "INSERT INTO USERS (username, password, regDate) VALUES (?, ?, CURDATE())",
-        [username, password]
-    );
-
-    if (!response.error) {
-        response.username = username;
-        response.password = password;
+    if (!username || !password) {
+      return res.json({ error: "Username and password required" });
     }
 
-    res.json(response);
-});
-
-app.post("/api/register/setprofile", async (req, res) => {
-    const { fname, lname, gender, bio, dob, username, password } = req.body;
-    const response = await executeQuery(
-        `UPDATE USERS
-         SET FNAME = ?, LNAME = ?, GENDER = ?, BIO = ?, DOB = COALESCE(?, DOB)
-         WHERE USERNAME = ?`,
-        [fname, lname, gender, bio, dob || null, username]
-    );
-
-    if (!response.error) {
-        response.username = username;
-        response.password = password;
+    const cleanUsername = username.toLowerCase().trim();
+    const existing = await User.findOne({ username: cleanUsername });
+    if (existing) {
+      return res.json({ error: "Username already exists" });
     }
 
-    res.json(response);
-});
-
-app.get("/api/profile", async (req, res) => {
-    const { username } = req.query;
-    const users = await executeQuery(
-        "SELECT * FROM USERS WHERE USERNAME = ? LIMIT 1",
-        [username]
-    );
-
-    if (users.error) return res.json(users);
-
-    res.json(users.length === 0 ? {} : users[0]);
-});
-
-app.get("/api/chat", async (req, res) => {
-    const { username, password } = req.query;
-    const authUsers = await executeQuery(
-        "SELECT * FROM USERS WHERE USERNAME = ? AND PASSWORD = ?",
-        [username, password]
-    );
-
-    if (authUsers.error) return res.json(authUsers);
-    if (authUsers.length === 0) return res.json({ success: false });
-
-    const users = await executeQuery(
-        `SELECT *
-         FROM USERS U
-         JOIN CONTACT C ON U.USERNAME = C.CONTACTNAME
-         WHERE C.USERNAME = ?`,
-        [username]
-    );
-
-    res.json({ users });
-});
-
-app.get("/api/chat/chatuser", async (req, res) => {
-    const { username, chatid } = req.query;
-    const users = await executeQuery(
-        `SELECT *
-         FROM USERS
-         WHERE USERNAME IN (
-             SELECT CONTACTNAME FROM CONTACT WHERE CHAT_ID = ? AND USERNAME = ?
-         )`,
-        [chatid, username]
-    );
-
-    if (users.error) return res.json(users);
-
-    res.json(users[0] || {});
-});
-
-app.get("/api/chat/messages", async (req, res) => {
-    const { chatid, sender } = req.query;
-    const messages = await executeQuery(
-        `SELECT *, IF(SENDER = ?, true, false) AS is_sender
-         FROM MESSAGE
-         WHERE CHAT_ID = ?
-         ORDER BY time ASC`,
-        [sender, chatid]
-    );
-
-    if (messages.error) return res.json(messages);
-
-    res.json({ messages });
-});
-
-app.post("/api/chat/messages", async (req, res) => {
-    const { message, chatid, sender } = req.body;
-    const response = await executeQuery(
-        "INSERT INTO MESSAGE VALUES (?, ?, ?, NOW(), false)",
-        [chatid, sender, message]
-    );
-
-    if (response.error) return res.json(response);
+    const user = await User.create({
+      username: cleanUsername,
+      password,
+      regDate: new Date(),
+      last_seen: new Date(),
+    });
 
     res.json({
-        is_sender: true,
-        content: message
+      success: true,
+      username: user.username,
+      password: user.password,
     });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.json({ error: err.message });
+  }
 });
 
+// Profile Setup / Update
+app.post("/api/register/setprofile", async (req, res) => {
+  try {
+    const { fname, lname, gender, bio, dob, username, profilePic } = req.body;
+    if (!username) {
+      return res.status(400).json({ error: "Username is required" });
+    }
+
+    const cleanUsername = username.toLowerCase().trim();
+    const updateData = {};
+    if (fname !== undefined) updateData.fname = fname;
+    if (lname !== undefined) updateData.lname = lname;
+    if (gender !== undefined) updateData.gender = gender;
+    if (bio !== undefined) updateData.bio = bio;
+    if (dob !== undefined) updateData.DOB = dob;
+    if (profilePic !== undefined) updateData.profilePic = profilePic;
+
+    const user = await User.findOneAndUpdate(
+      { username: cleanUsername },
+      updateData,
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error("Setprofile error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get User Profile
+app.get("/api/profile", async (req, res) => {
+  try {
+    const { username } = req.query;
+    if (!username) return res.json({ user: null });
+
+    const user = await User.findOne({
+      username: username.toLowerCase().trim(),
+    });
+
+    res.json({ user: user || null, ...(user ? user.toObject() : {}) });
+  } catch (err) {
+    console.error("Profile error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get User Chats (Conversations list)
+app.get("/api/chat", async (req, res) => {
+  try {
+    const { username, password } = req.query;
+    if (!username) return res.json({ users: [] });
+
+    const cleanUsername = username.toLowerCase().trim();
+    if (password) {
+      const authUser = await User.findOne({
+        username: cleanUsername,
+        password,
+      });
+      if (!authUser) return res.json({ success: false, users: [] });
+    }
+
+    const chats = await Chat.find({ participants: cleanUsername }).sort({
+      updatedAt: -1,
+    });
+
+    const usersWithChatId = [];
+    for (const chat of chats) {
+      const otherUsername = chat.participants.find(
+        (p) => p.toLowerCase() !== cleanUsername
+      );
+      if (otherUsername) {
+        const otherUser = await User.findOne({ username: otherUsername });
+        if (otherUser) {
+          usersWithChatId.push({
+            ...otherUser.toObject(),
+            chat_id: chat._id.toString(),
+            lastMessage: chat.lastMessage,
+            lastMessageTime: chat.lastMessageTime,
+          });
+        }
+      }
+    }
+
+    res.json({ users: usersWithChatId });
+  } catch (err) {
+    console.error("Get chats error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get Chat User Info
+app.get("/api/chat/chatuser", async (req, res) => {
+  try {
+    const { username, chatid } = req.query;
+    if (!chatid) return res.json({});
+
+    const chat = await Chat.findById(chatid);
+    if (!chat) return res.json({});
+
+    const cleanUsername = username ? username.toLowerCase().trim() : "";
+    const otherUsername = chat.participants.find(
+      (p) => p.toLowerCase() !== cleanUsername
+    );
+
+    if (!otherUsername) return res.json({});
+
+    const otherUser = await User.findOne({ username: otherUsername });
+    res.json(otherUser || {});
+  } catch (err) {
+    console.error("Chatuser error:", err);
+    res.json({});
+  }
+});
+
+// Get Chat Messages
+app.get("/api/chat/messages", async (req, res) => {
+  try {
+    const { chatid, sender } = req.query;
+    if (!chatid) return res.json({ messages: [] });
+
+    const messages = await Message.find({ chatId: chatid }).sort({ time: 1 });
+
+    const formatted = messages.map((m) => ({
+      content: m.content,
+      is_sender: m.sender.toLowerCase() === (sender || "").toLowerCase(),
+      SENDER: m.sender,
+      CHAT_ID: m.chatId,
+      time: m.time,
+    }));
+
+    res.json({ messages: formatted });
+  } catch (err) {
+    console.error("Get messages error:", err);
+    res.json({ messages: [] });
+  }
+});
+
+// Post Message
+app.post("/api/chat/messages", async (req, res) => {
+  try {
+    const { message, chatid, sender } = req.body;
+    if (!message || !chatid || !sender) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const newMsg = await Message.create({
+      chatId: chatid,
+      sender: sender.toLowerCase().trim(),
+      content: message,
+      time: new Date(),
+    });
+
+    await Chat.findByIdAndUpdate(chatid, {
+      lastMessage: message,
+      lastMessageTime: new Date(),
+    });
+
+    res.json({
+      is_sender: true,
+      content: message,
+      time: newMsg.time,
+    });
+  } catch (err) {
+    console.error("Post message error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// User Status
 app.get("/api/user-status/:username", async (req, res) => {
-    const { username } = req.params;
+  try {
+    const username = req.params.username.toLowerCase().trim();
 
     if (onlineUsers.has(username)) {
-        return res.json({
-            isOnline: true,
-            lastSeen: null
-        });
+      return res.json({
+        isOnline: true,
+        lastSeen: null,
+      });
     }
 
-    const users = await executeQuery(
-        "SELECT last_seen FROM USERS WHERE username = ?",
-        [username]
-    );
-
-    if (users.error) return res.json(users);
-    if (users.length === 0) return res.status(404).json({ error: "User not found" });
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
     res.json({
-        isOnline: false,
-        lastSeen: users[0].last_seen
+      isOnline: false,
+      lastSeen: user.last_seen,
     });
+  } catch (err) {
+    console.error("User status error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
+// Search Peers
 app.get("/api/search", async (req, res) => {
+  try {
     const { username, search } = req.query;
-    const users = await executeQuery(
-        `SELECT *
-         FROM USERS
-         WHERE USERNAME LIKE ?
-           AND USERNAME <> ?
-           AND USERNAME NOT IN (
-               SELECT CONTACTNAME FROM CONTACT WHERE USERNAME = ?
-           )
-           AND USERNAME NOT IN (
-               SELECT RECEIVER FROM FRIENDREQUEST WHERE SENDER = ?
-           )`,
-        [`%${search || ""}%`, username, username, username]
-    );
+    if (!username) return res.json({ users: [] });
+
+    const cleanUsername = username.toLowerCase().trim();
+
+    // Find existing chats to exclude current friends
+    const existingChats = await Chat.find({ participants: cleanUsername });
+    const existingFriends = new Set();
+    existingChats.forEach((c) => {
+      c.participants.forEach((p) => {
+        if (p.toLowerCase() !== cleanUsername) existingFriends.add(p.toLowerCase());
+      });
+    });
+
+    // Find pending sent friend requests to exclude
+    const sentRequests = await FriendRequest.find({ sender: cleanUsername });
+    const pendingReceivers = new Set(sentRequests.map((r) => r.receiver.toLowerCase()));
+
+    const queryStr = search ? search.trim() : "";
+    const excludeList = [cleanUsername, ...existingFriends, ...pendingReceivers];
+
+    const users = await User.find({
+      username: {
+        $regex: queryStr,
+        $options: "i",
+        $nin: excludeList,
+      },
+    }).limit(20);
 
     res.json({ users });
+  } catch (err) {
+    console.error("Search error:", err);
+    res.json({ users: [] });
+  }
 });
 
+// Send Friend Request
 app.post("/api/search", async (req, res) => {
+  try {
     const { username, contactuser } = req.body;
-    const response = await executeQuery(
-        "INSERT INTO FRIENDREQUEST VALUES (?, ?, NOW())",
-        [username, contactuser]
-    );
+    if (!username || !contactuser) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
 
-    res.json(response);
+    const sender = username.toLowerCase().trim();
+    const receiver = contactuser.toLowerCase().trim();
+
+    const existing = await FriendRequest.findOne({ sender, receiver });
+    if (!existing) {
+      await FriendRequest.create({ sender, receiver, time: new Date() });
+    }
+
+    // Real-time socket notification to receiver
+    const receiverCount = await FriendRequest.countDocuments({ receiver });
+    const senderUser = await User.findOne({ username: sender });
+    const receiverSocketId = onlineUsers.get(receiver);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("new-friend-request", {
+        sender,
+        senderDetails: senderUser,
+        count: receiverCount,
+      });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Send friend request error:", err);
+    res.json({ error: err.message });
+  }
 });
 
-app.get("/api/friendrequest", async (req, res) => {
+// Get Incoming Friend Requests Count (Fast for badge indicator)
+app.get("/api/friendrequest/count", async (req, res) => {
+  try {
     const { username } = req.query;
-    const users = await executeQuery(
-        `SELECT *
-         FROM USERS
-         WHERE USERNAME IN (
-             SELECT SENDER FROM FRIENDREQUEST WHERE RECEIVER = ?
-         )`,
-        [username]
-    );
+    if (!username) return res.json({ count: 0 });
 
-    res.json(users);
+    const cleanUsername = username.toLowerCase().trim();
+    const count = await FriendRequest.countDocuments({ receiver: cleanUsername });
+    res.json({ count });
+  } catch (err) {
+    console.error("Get friend requests count error:", err);
+    res.json({ count: 0 });
+  }
 });
 
+// Get Incoming Friend Requests
+app.get("/api/friendrequest", async (req, res) => {
+  try {
+    const { username } = req.query;
+    if (!username) return res.json([]);
+
+    const cleanUsername = username.toLowerCase().trim();
+    const requests = await FriendRequest.find({ receiver: cleanUsername });
+    const senderUsernames = requests.map((r) => r.sender);
+
+    const users = await User.find({ username: { $in: senderUsernames } });
+    res.json(users);
+  } catch (err) {
+    console.error("Get friend requests error:", err);
+    res.json([]);
+  }
+});
+
+// Accept / Decline Friend Request
 app.post("/api/friendrequest", async (req, res) => {
+  try {
     const { sender, receiver, accepted } = req.body;
+    if (!sender || !receiver) {
+      return res.status(400).json({ error: "Missing fields" });
+    }
 
-    const deleted = await executeQuery(
-        `DELETE FROM FRIENDREQUEST
-         WHERE (SENDER = ? AND RECEIVER = ?)
-            OR (SENDER = ? AND RECEIVER = ?)`,
-        [sender, receiver, receiver, sender]
-    );
+    const userA = sender.toLowerCase().trim();
+    const userB = receiver.toLowerCase().trim();
 
-    if (deleted.error) return res.json(deleted);
+    // Remove pending request
+    await FriendRequest.deleteMany({
+      $or: [
+        { sender: userA, receiver: userB },
+        { sender: userB, receiver: userA },
+      ],
+    });
 
     const msg = accepted
-        ? "accepted Your Friend Request"
-        : "declined Your Friend Request";
+      ? "accepted Your Friend Request"
+      : "declined Your Friend Request";
 
-    await executeQuery(
-        "INSERT INTO NOTIFICATIONS VALUES (?, ?, ?, NOW())",
-        [receiver, sender, msg]
-    );
+    // Notify userB (who sent the original request)
+    await Notification.create({
+      username: userB,
+      senderuser: userA,
+      message: msg,
+      time: new Date(),
+    });
 
-    if (!accepted) return res.json({ success: true });
+    // Real-time socket notification for updated badge counts
+    const remainingCountA = await FriendRequest.countDocuments({ receiver: userA });
+    const socketA = onlineUsers.get(userA);
+    if (socketA) {
+      io.to(socketA).emit("friend-request-count-updated", { count: remainingCountA });
+    }
 
-    const chat = await executeQuery(
-        "INSERT INTO CHATS (create_time) VALUES (NOW())"
-    );
+    const remainingCountB = await FriendRequest.countDocuments({ receiver: userB });
+    const socketB = onlineUsers.get(userB);
+    if (socketB) {
+      io.to(socketB).emit("friend-request-count-updated", { count: remainingCountB });
+      io.to(socketB).emit("friend-request-resolved", {
+        by: userA,
+        accepted,
+      });
+    }
 
-    if (chat.error) return res.json(chat);
+    if (!accepted) {
+      return res.json({ success: true });
+    }
 
-    const chatId = chat.insertId;
-    const contacts = await executeQuery(
-        "INSERT INTO CONTACT VALUES (?, ?, ?), (?, ?, ?)",
-        [receiver, sender, chatId, sender, receiver, chatId]
-    );
+    // Create chat if not exists
+    let chat = await Chat.findOne({
+      participants: { $all: [userA, userB] },
+    });
 
-    if (!contacts.error) contacts.id = chatId;
+    if (!chat) {
+      chat = await Chat.create({
+        participants: [userA, userB],
+        createdAt: new Date(),
+      });
+    }
 
-    res.json(contacts);
+    // Notify both users that a new conversation has been unlocked
+    if (socketA) io.to(socketA).emit("chat-created", { chatId: chat._id, with: userB });
+    if (socketB) io.to(socketB).emit("chat-created", { chatId: chat._id, with: userA });
+
+    res.json({ success: true, id: chat._id.toString() });
+  } catch (err) {
+    console.error("Resolve friend request error:", err);
+    res.json({ error: err.message });
+  }
 });
 
+// Get Notifications
 app.get("/api/notification", async (req, res) => {
+  try {
     const { username } = req.query;
-    const notifications = await executeQuery(
-        `SELECT *
-         FROM NOTIFICATIONS N
-         JOIN USERS U ON N.SENDERUSER = U.USERNAME
-         WHERE N.USERNAME = ?
-         ORDER BY N.time DESC`,
-        [username]
-    );
+    if (!username) return res.json([]);
 
-    res.json(notifications);
+    const cleanUsername = username.toLowerCase().trim();
+    const notifications = await Notification.find({
+      username: cleanUsername,
+    }).sort({ time: -1 });
+
+    const enriched = [];
+    for (const n of notifications) {
+      const senderObj = await User.findOne({ username: n.senderuser });
+      enriched.push({
+        username: n.username,
+        senderuser: n.senderuser,
+        message: n.message,
+        time: n.time,
+        fname: senderObj?.fname || "",
+        lname: senderObj?.lname || "",
+        gender: senderObj?.gender || "Other",
+      });
+    }
+
+    res.json(enriched);
+  } catch (err) {
+    console.error("Get notifications error:", err);
+    res.json([]);
+  }
 });
 
+// Clear Notifications
 app.delete("/api/notification", async (req, res) => {
+  try {
     const { username } = req.query;
-    const response = await executeQuery(
-        "DELETE FROM NOTIFICATIONS WHERE USERNAME = ?",
-        [username]
-    );
+    if (!username) return res.json({ success: true });
 
-    res.json(response);
+    await Notification.deleteMany({
+      username: username.toLowerCase().trim(),
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Clear notifications error:", err);
+    res.json({ error: err.message });
+  }
 });
 
+// ==========================================
+// Socket.IO Server Setup
+// ==========================================
 const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
-    cors: {
-        origin: process.env.FRONTEND_URL || "*",
-        methods: ["GET", "POST"],
-        credentials: true
-    },
-    transports: ["websocket", "polling"]
+  cors: {
+    origin: process.env.FRONTEND_URL || "*",
+    methods: ["GET", "POST"],
+    credentials: true,
+  },
+  transports: ["websocket", "polling"],
 });
 
 io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
+  console.log("User connected:", socket.id);
 
-    socket.on("user-online", async (username) => {
-        console.log(`${username} is now online`);
-        onlineUsers.set(username, socket.id);
-        userSessions.set(socket.id, { username });
+  socket.on("user-online", async (username) => {
+    if (!username) return;
+    const cleanUser = username.toLowerCase().trim();
+    console.log(`${cleanUser} is now online`);
 
-        await updateLastSeen(username);
+    onlineUsers.set(cleanUser, socket.id);
+    userSessions.set(socket.id, { username: cleanUser });
 
-        io.emit("user-status-change", {
-            username,
-            status: "online"
-        });
+    await updateLastSeen(cleanUser);
+
+    io.emit("user-status-change", {
+      username: cleanUser,
+      status: "online",
     });
+  });
 
-    socket.on("join-chat", async (data) => {
-        const { chatId, username } = data;
-        socket.join(chatId);
-        console.log(`User ${username} joined chat room: ${chatId}`);
+  socket.on("join-chat", async (data) => {
+    const { chatId, username } = data;
+    if (!chatId) return;
 
-        onlineUsers.set(username, socket.id);
+    const cleanUser = username ? username.toLowerCase().trim() : "";
+    socket.join(chatId);
+    console.log(`User ${cleanUser} joined chat room: ${chatId}`);
 
-        const session = userSessions.get(socket.id);
-        userSessions.set(socket.id, {
-            ...session,
-            username,
-            chatId
-        });
+    if (cleanUser) {
+      onlineUsers.set(cleanUser, socket.id);
 
-        await updateLastSeen(username);
+      const session = userSessions.get(socket.id);
+      userSessions.set(socket.id, {
+        ...session,
+        username: cleanUser,
+        chatId,
+      });
 
+      await updateLastSeen(cleanUser);
+
+      socket.to(chatId).emit("user-status-changed", {
+        username: cleanUser,
+        isOnline: true,
+      });
+
+      socket.to(chatId).emit("user-joined-chat", {
+        username: cleanUser,
+        chatId,
+      });
+    }
+  });
+
+  socket.on("leave-chat", (data) => {
+    const { chatId, username } = data;
+    socket.leave(chatId);
+    console.log(`User ${username} left chat room: ${chatId}`);
+
+    socket.to(chatId).emit("user-left-chat", {
+      username,
+      chatId,
+    });
+  });
+
+  socket.on("send-message", (data) => {
+    console.log("Message received via socket:", data);
+    io.to(data.chatId).emit("receive-message", data);
+  });
+
+  socket.on("typing", (data) => {
+    socket.to(data.chatId).emit("user-typing", data);
+  });
+
+  socket.on("disconnect", async () => {
+    console.log("User disconnected:", socket.id);
+
+    const session = userSessions.get(socket.id);
+    if (session && session.username) {
+      const { username, chatId } = session;
+
+      onlineUsers.delete(username);
+      await updateLastSeen(username);
+
+      if (chatId) {
         socket.to(chatId).emit("user-status-changed", {
-            username,
-            isOnline: true
+          username,
+          isOnline: false,
         });
+      }
 
-        socket.to(chatId).emit("user-joined-chat", {
-            username,
-            chatId
-        });
-    });
+      io.emit("user-status-change", {
+        username,
+        status: "offline",
+      });
 
-    socket.on("leave-chat", (data) => {
-        const { chatId, username } = data;
-        socket.leave(chatId);
-        console.log(`User ${username} left chat room: ${chatId}`);
+      userSessions.delete(socket.id);
+      console.log(`${username} is now offline`);
+    }
+  });
 
-        socket.to(chatId).emit("user-left-chat", {
-            username,
-            chatId
-        });
-    });
-
-    socket.on("send-message", (data) => {
-        console.log("Message received:", data);
-        io.to(data.chatId).emit("receive-message", data);
-    });
-
-    socket.on("typing", (data) => {
-        socket.to(data.chatId).emit("user-typing", data);
-    });
-
-    socket.on("disconnect", async () => {
-        console.log("User disconnected:", socket.id);
-
-        const session = userSessions.get(socket.id);
-        if (session && session.username) {
-            const { username, chatId } = session;
-
-            onlineUsers.delete(username);
-            await updateLastSeen(username);
-
-            if (chatId) {
-                socket.to(chatId).emit("user-status-changed", {
-                    username,
-                    isOnline: false
-                });
-            }
-
-            io.emit("user-status-change", {
-                username,
-                status: "offline"
-            });
-
-            userSessions.delete(socket.id);
-            console.log(`${username} is now offline`);
-        }
-    });
-
-    socket.on("get-online-users", (callback) => {
-        callback(Array.from(onlineUsers.keys()));
-    });
+  socket.on("get-online-users", (callback) => {
+    if (typeof callback === "function") {
+      callback(Array.from(onlineUsers.keys()));
+    }
+  });
 });
 
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, () => {
-    console.log(`🚀 Backend server running on port ${PORT}`);
-    console.log("📡 Socket.IO ready for connections");
+  console.log(`🚀 Backend server running on port ${PORT}`);
+  console.log("📡 Socket.IO ready for connections");
 });

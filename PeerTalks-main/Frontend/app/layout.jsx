@@ -1,11 +1,11 @@
-import NavBar from '@/components/NavBar'
+import AppShell from '@/components/AppShell'
 import './globals.css'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 export const metadata = {
-  title: 'PeerTalks',
-  description: 'Chatting with Peers',
+  title: 'PeerTalks - Real-Time Peer Conversations',
+  description: 'A minimal, fast, real-time messaging platform connecting peers seamlessly.',
 }
 
 export default function RootLayout({ children }) {
@@ -14,18 +14,20 @@ export default function RootLayout({ children }) {
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
-        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-        <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Balinese&display=swap" rel="stylesheet"></link>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
       </head>
-      <body className='relative selection:bg-primary-400 selection:text-white' style={{ fontFamily: "Poppins, sans-serif" }} >
-      <ToastContainer
-        pauseOnHover={false}
-        autoClose={2000}
-      />
-        <NavBar />
-        <main>
+      <body className='relative font-sans bg-zinc-50 text-zinc-900'>
+        <ToastContainer
+          position="bottom-right"
+          theme="light"
+          pauseOnHover={false}
+          autoClose={2200}
+          hideProgressBar={true}
+          toastClassName="!rounded-xl !shadow-dropdown !border !border-zinc-100 !text-sm !font-medium"
+        />
+        <AppShell>
           {children}
-        </main>
+        </AppShell>
       </body>
     </html>
   )

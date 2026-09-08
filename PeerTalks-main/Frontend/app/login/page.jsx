@@ -3,16 +3,29 @@
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ThreeDots } from "react-loader-spinner";
+import { HiOutlineUser, HiOutlineLockClosed, HiEye, HiEyeSlash } from "react-icons/hi2";
 import { apiUrl } from "@/lib/api";
+
 export default function Login() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Clean up any sensitive query params that may have leaked into the URL
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.search) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   const login = (event) => {
     event.preventDefault();
     setLoading(true);
+    setError(false);
+
     const formData = new FormData(event.target);
     const formObject = {};
     formData.forEach((value, key) => {
@@ -20,79 +33,132 @@ export default function Login() {
     });
 
     axios
-      .get(apiUrl(`/api/login?username=${formObject.username}&password=${formObject.password}`))
-      .then(function (response) {
+      .post(apiUrl("/api/login"), {
+        username: formObject.username,
+        password: formObject.password,
+      })
+      .then((response) => {
         if (response.data.success) {
           localStorage.setItem("username", formObject.username);
           localStorage.setItem("password", formObject.password);
           router.push("/chat");
-        }
-        else {
+        } else {
           setError(true);
         }
       })
-      .catch(function (error) {
-        console.log(error);
+      .catch((err) => {
+        console.error(err);
+        setError(true);
       })
-      .finally(function () {
+      .finally(() => {
         setLoading(false);
       });
   };
-  let inputClass = `bg-white mt-1 p-2 w-full border ${error ? "animate-wiggle border-red-500 focus:border-red-500" : "border-gray-200 focus:border-gray-400"}  rounded-md focus:outline-none text-[0.95rem] transition-colors py-3 px-4`;
 
-  return <>
-    <div className="from-primary-50 to-primary-300 bg-gradient-to-br flex items-center justify-center h-screen">
-      <div className="flex shadow-md sm:w-full md:w-96 lg:w-7/12 rounded-lg min-h-[70vh]">
-        <div className="bg-gradient-to-b from-primary-700/80  to-primary-300/80 w-4/12 rounded-l-lg flex flex-col justify-center items-center">
-          <div className=" w-full h-32 flex flex-col justify-center items-center">
-            <h3 className=" text-white text-xl">Step into</h3>
-            <h2 className="text-white text-4xl font-bold">PEER TALKS</h2>
-          </div>
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center bg-zinc-50 px-4 py-12 relative overflow-hidden">
+      {/* Background Subtle Gradient Blobs */}
+      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-primary-100/50 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-indigo-100/50 rounded-full blur-3xl pointer-events-none -z-10" />
+
+      <div className="w-full max-w-md bg-white rounded-2xl border border-zinc-200/80 shadow-dropdown p-8 sm:p-10 animate-fadeIn">
+        {/* Brand Icon & Heading */}
+        <div className="flex flex-col items-center text-center mb-8">
+          <Link
+            href="/"
+            className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-primary-600 to-primary-500 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-primary-500/20 mb-4 hover:scale-105 transition-transform"
+          >
+            P
+          </Link>
+          <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">
+            Welcome back
+          </h1>
+          <p className="text-sm text-zinc-500 mt-1.5">
+            Log in to continue chatting with your peers
+          </p>
         </div>
-        <div className="bg-gray-50 p-8 rounded-r-lg w-2/3 flex flex-col justify-center">
-          <div className="ml-2 flex flex-col gap-y-1 items-center">
-            <h2 className="text-2xl font-bold pr-2 text-gray-700">Welcome Back !</h2>
-            <h3 className="text-gray-500 text-sm mb-5">Log In to continue</h3>
+
+        {/* Error Alert */}
+        {error && (
+          <div className="mb-6 p-3.5 bg-rose-50 border border-rose-200/70 rounded-xl text-xs font-medium text-rose-700 flex items-center justify-center animate-wiggle">
+            Incorrect username or password. Please try again.
           </div>
-          <form className="flex flex-col gap-y-3" onSubmit={login}>
+        )}
 
-            <div className="relative flex flex-col gap-y-5 items-center">
-              <div className="w-7/12">
-                <input type="text" id="username" name="username" className={inputClass} required placeholder="Username" onChange={() => setError(false)} />
-              </div>
-              <div className="w-7/12">
-                <input type="password" id="password" name="password" className={inputClass} required placeholder="Password" onChange={() => setError(false)} />
-              </div>
-              <div className="absolute -bottom-7 mx-auto text-xs text-red-500 font-medium transition-opacity duration-200" style={{ opacity: error ? 1 : 0 }}>
-                Username or Password is Incorrect!
-              </div>
+        <form method="POST" action="#" onSubmit={login} className="space-y-4">
+          {/* Username */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-1.5">
+              Username
+            </label>
+            <div className="relative flex items-center">
+              <HiOutlineUser className="absolute left-3.5 w-5 h-5 text-zinc-400 pointer-events-none" />
+              <input
+                type="text"
+                name="username"
+                required
+                placeholder="Enter your username"
+                onChange={() => setError(false)}
+                className="w-full bg-zinc-50/70 border border-zinc-200 rounded-xl pl-11 pr-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+              />
             </div>
+          </div>
 
-            <button
-              type="submit"
-              className="font-semibold tracking-wider mt-8 bg-primary-500 text-white px-4 py-3 rounded-md mx-auto hover:bg-primary-600 transition-colors w-1/2"
-            >
-              <div className="w-full flex justify-center">
-
-                <ThreeDots
-                  height={24}
-                  width={24}
-                  radius="2"
-                  color="hsl(278 100% 90%)"
-                  visible={loading}
-                />
-              </div>
-              {!loading && <span className="uppercase">
-                log in
-              </span>}
-            </button>
-
-            <div className="mx-auto text-sm text-gray-900">
-              New here ? <Link href="/register" className="font-semibold text-gray-950 hover:text-black">Sign Up</Link>
+          {/* Password */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-1.5">
+              Password
+            </label>
+            <div className="relative flex items-center">
+              <HiOutlineLockClosed className="absolute left-3.5 w-5 h-5 text-zinc-400 pointer-events-none" />
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                required
+                placeholder="••••••••"
+                onChange={() => setError(false)}
+                className="w-full bg-zinc-50/70 border border-zinc-200 rounded-xl pl-11 pr-11 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3.5 text-zinc-400 hover:text-zinc-600 transition-colors"
+              >
+                {showPassword ? (
+                  <HiEyeSlash className="w-5 h-5" />
+                ) : (
+                  <HiEye className="w-5 h-5" />
+                )}
+              </button>
             </div>
-          </form>
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full mt-6 py-3.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-semibold transition-all shadow-sm hover:shadow active:scale-[0.99] flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <ThreeDots height={20} width={36} color="#ffffff" visible={true} />
+            ) : (
+              "Sign In"
+            )}
+          </button>
+        </form>
+
+        {/* Footer link */}
+        <div className="mt-8 text-center text-xs text-zinc-500">
+          Don't have an account?{" "}
+          <Link
+            href="/register"
+            className="font-semibold text-primary-600 hover:text-primary-700 transition-colors"
+          >
+            Create one now
+          </Link>
         </div>
       </div>
     </div>
-  </>
+  );
 }
+

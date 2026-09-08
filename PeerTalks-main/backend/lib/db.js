@@ -1,44 +1,22 @@
-const mysql = require("mysql2/promise");
+const mongoose = require("mongoose");
 
-console.log({
-  DB_HOST: process.env.DB_HOST,
-  DB_PORT: process.env.DB_PORT,
-  DB_USER: process.env.DB_USER,
-  DB_PASSWORD: process.env.DB_PASSWORD,
-  DB_NAME: process.env.DB_NAME,
-});
+const MONGODB_URI =
+  process.env.MONGODB_URI || "mongodb://localhost:27017/peertalks";
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT || 3306,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-});
-
-async function testConnection() {
+async function connectDB() {
   try {
-    await pool.query("SELECT 1");
-    console.log("Database Connected");
+    await mongoose.connect(MONGODB_URI);
+    console.log("🍃 MongoDB Connected successfully");
   } catch (err) {
-    console.error("Database Connection Failed:", err.message);
+    console.error("❌ MongoDB Connection Failed:", err.message);
+    console.log(
+      "💡 Tip: Ensure MongoDB is running locally or provide a valid MONGODB_URI in backend/.env"
+    );
   }
 }
 
-async function executeQuery(query, values = []) {
-  try {
-    const [results] = await pool.execute(query, values);
-    return results;
-  } catch (error) {
-    console.error("DB Query Error:", error);
-    return { error: error.message };
-  }
-}
-
-testConnection();
+connectDB();
 
 module.exports = {
-  executeQuery,
+  connectDB,
 };

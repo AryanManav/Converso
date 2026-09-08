@@ -35,9 +35,9 @@ PeerTalks/
 ### Backend
 - **Runtime:** Node.js + Express
 - **Real-time:** Socket.IO Server
-- **Database:** MySQL
-- **ORM:** serverless-mysql + mysql2
-- **Deployment:** Railway
+- **Database:** MongoDB (Local or MongoDB Atlas)
+- **ODM:** Mongoose
+- **Deployment:** Railway / Render
 
 ---
 
@@ -45,7 +45,7 @@ PeerTalks/
 
 ### Prerequisites
 - Node.js (v18+ recommended)
-- MySQL database
+- MongoDB instance (Local MongoDB or free cloud MongoDB Atlas)
 - npm or yarn
 
 ### 1. Clone the Repository
@@ -58,7 +58,7 @@ cd PeerTalks
 
 #### Frontend
 ```sh
-cd frontend
+cd Frontend
 npm install
 ```
 
@@ -70,37 +70,26 @@ npm install
 
 ### 3. Configure Environment Variables
 
-Create `.env` files in both `frontend/` and `backend/` directories.
+Create `.env` files in both `Frontend/` and `backend/` directories.
 
-#### Frontend/.env.example
+#### Frontend/.env
 ```env
+NEXT_PUBLIC_BACKEND_URL="http://localhost:3001"
 NEXT_PUBLIC_SOCKET_URL="http://localhost:3001"
-DB_HOST=" "
-DB_PORT=" "
-DB_USER=" "
-DB_PASSWORD="your_password"
-DB_NAME=" "
 ```
 
-#### Backend/.env.example
+#### Backend/.env
 ```env
 PORT=3001
 FRONTEND_URL="http://localhost:3000"
+
+# Local MongoDB:
+MONGODB_URI="mongodb://localhost:27017/peertalks"
+# Or MongoDB Atlas:
+# MONGODB_URI="mongodb+srv://<username>:<password>@cluster0.mongodb.net/peertalks?retryWrites=true&w=majority"
 ```
 
-Copy these files to `.env` and fill in your actual database credentials.
-
-### 4. Set Up Database
-
-Run the SQL schema to create required tables:
-```sh
-cd backend
-mysql -u root -p < queries.sql
-```
-
-Or manually run the SQL commands from `queries.sql` in your MySQL client.
-
-### 5. Run the Project
+### 4. Run the Project
 
 #### Start Backend
 ```sh
@@ -110,7 +99,7 @@ npm start
 
 #### Start Frontend
 ```sh
-cd ../frontend
+cd ../Frontend
 npm run dev
 ```
 

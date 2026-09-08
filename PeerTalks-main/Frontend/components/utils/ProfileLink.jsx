@@ -1,17 +1,14 @@
-import { useRouter } from "next/navigation"
+import Link from "next/link";
 
+export default function ProfileLink({ fname, lname, username, className = "" }) {
+  const displayName = [fname, lname].filter(Boolean).join(" ") || username || "Peer";
 
-export default function ProfileLink({ fname, lname, username, className }) {
-    const router = useRouter();
-    return <span className={className + " cursor-pointer hover:underline"}
-        onClick={() => router.push(`/profile/${username}`)}
+  return (
+    <Link
+      href={`/profile/${username}`}
+      className={`hover:text-primary-600 transition-colors font-medium ${className}`}
     >
-        <span>
-            {fname}
-        </span>
-        {" "}
-        <span>
-            {lname}
-        </span>
-    </span>
+      {displayName}
+    </Link>
+  );
 }
