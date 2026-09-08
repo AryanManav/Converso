@@ -10,7 +10,7 @@ import { apiUrl } from "@/lib/api";
 
 export default function Register() {
   const [errorClient, setErrorClient] = useState(false);
-  const [errorServer, setErrorServer] = useState(false);
+  const [errorServer, setErrorServer] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -18,7 +18,7 @@ export default function Register() {
     event.preventDefault();
     setLoading(true);
     setErrorClient(false);
-    setErrorServer(false);
+    setErrorServer("");
 
     const formData = new FormData(event.target);
     const formObject = {};
@@ -36,7 +36,7 @@ export default function Register() {
       .post(apiUrl("/api/register"), formObject)
       .then((response) => {
         if (response.data.error) {
-          setErrorServer(true);
+          setErrorServer(response.data.error);
         } else {
           localStorage.setItem("username", response.data.username);
           localStorage.setItem("password", response.data.password);
@@ -44,8 +44,11 @@ export default function Register() {
         }
       })
       .catch((err) => {
-        console.error(err);
-        setErrorServer(true);
+        console.error("Register network error:", err);
+        setErrorServer(
+          err.response?.data?.error ||
+          "Network Error: Could not connect to backend server. Make sure the backend is running!"
+        );
       })
       .finally(() => {
         setLoading(false);
@@ -77,8 +80,8 @@ export default function Register() {
 
         {/* Alerts */}
         {errorServer && (
-          <div className="mb-6 p-3.5 bg-rose-50 border border-rose-200/70 rounded-xl text-xs font-medium text-rose-700 flex items-center justify-center animate-wiggle">
-            Username already exists! Please choose another.
+          <div className="mb-6 p-3.5 bg-rose-50 border border-rose-200/70 rounded-xl text-xs font-medium text-rose-700 flex items-center justify-center text-center animate-wiggle">
+            {errorServer}
           </div>
         )}
 

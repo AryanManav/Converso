@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { io } from "socket.io-client"
+import socket from "@/lib/socket"
 import { HiPaperAirplane } from "react-icons/hi2";
 import { apiUrl } from "@/lib/api";
 
@@ -69,28 +69,28 @@ export default function ChatBox({ chatid }) {
 
             fetchInitialMessages();
 
-            const BACKEND_URL = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-            const socket = io(BACKEND_URL, {
-                transports: ["websocket", "polling"],
-            });
+            if (!socket.connected) {
+                socket.connect();
+            }
 
             socketRef.current = socket;
+            setConnectionStatus(socket.connected ? "connected" : "connecting");
 
-            socket.on("connect", () => {
+            const handleConnect = () => {
                 setConnectionStatus("connected");
                 socket.emit("join-chat", { chatId: chatid, username: user });
-            });
+            };
 
-            socket.on("connect_error", (err) => {
+            const handleConnectError = (err) => {
                 console.error("Socket error:", err);
                 setConnectionStatus("error");
-            });
+            };
 
-            socket.on("disconnect", () => {
+            const handleDisconnect = () => {
                 setConnectionStatus("disconnected");
-            });
+            };
 
-            socket.on("receive-message", (data) => {
+            const handleReceiveMessage = (data) => {
                 setMessages(prev => [...prev, {
                     content: data.message,
                     is_sender: data.sender === user,
@@ -99,9 +99,9 @@ export default function ChatBox({ chatid }) {
                     time: new Date().toISOString()
                 }]);
                 setTimeout(scrollToBottom, 50);
-            });
+            };
 
-            socket.on("user-typing", (data) => {
+            const handleUserTyping = (data) => {
                 const { username: typingUsername, chatId } = data;
                 if (chatId === chatid && typingUsername !== user) {
                     setTypingUser(typingUsername);
@@ -112,14 +112,27 @@ export default function ChatBox({ chatid }) {
                         setTypingUser(null);
                     }, 2000);
                 }
-            });
+            };
+
+            if (socket.connected) {
+                socket.emit("join-chat", { chatId: chatid, username: user });
+            }
+
+            socket.on("connect", handleConnect);
+            socket.on("connect_error", handleConnectError);
+            socket.on("disconnect", handleDisconnect);
+            socket.on("receive-message", handleReceiveMessage);
+            socket.on("user-typing", handleUserTyping);
 
             return () => {
-                socket.off("receive-message");
-                socket.off("user-typing");
+                socket.off("connect", handleConnect);
+                socket.off("connect_error", handleConnectError);
+                socket.off("disconnect", handleDisconnect);
+                socket.off("receive-message", handleReceiveMessage);
+                socket.off("user-typing", handleUserTyping);
+                socket.emit("leave-chat", { chatId: chatid, username: user });
                 if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
                 if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-                socket.disconnect();
             };
         }
     }, [chatid, fetchInitialMessages, scrollToBottom]);

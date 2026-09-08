@@ -15,6 +15,7 @@ import Profilepic from "@/components/Profilepic";
 import { ThreeDots } from "react-loader-spinner";
 import MyProfileDrawer from "@/components/main/Chat/MyProfileDrawer";
 import HelpDrawer from "@/components/main/Chat/HelpDrawer";
+import CallModal from "@/components/main/Call/CallModal";
 
 export default function ChatLayout({ children }) {
   const router = useRouter();
@@ -218,6 +219,9 @@ export default function ChatLayout({ children }) {
       <section className="flex-1 flex flex-col h-full bg-zinc-50/70 dark:bg-zinc-950 overflow-hidden relative">
         {children}
       </section>
+
+      {/* Global 1-on-1 Audio & Video Call Modal */}
+      <CallModal />
     </div>
   );
 }

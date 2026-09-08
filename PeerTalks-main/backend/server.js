@@ -16,7 +16,9 @@ const app = express();
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "*",
+    origin: (origin, callback) => {
+      callback(null, true);
+    },
     credentials: true,
   })
 );
@@ -280,7 +282,7 @@ app.get("/api/user-status/:username", async (req, res) => {
   try {
     const username = req.params.username.toLowerCase().trim();
 
-    if (onlineUsers.has(username)) {
+    if (onlineUsers.has(username) && onlineUsers.get(username).size > 0) {
       return res.json({
         isOnline: true,
         lastSeen: null,
@@ -360,14 +362,11 @@ app.post("/api/search", async (req, res) => {
     // Real-time socket notification to receiver
     const receiverCount = await FriendRequest.countDocuments({ receiver });
     const senderUser = await User.findOne({ username: sender });
-    const receiverSocketId = onlineUsers.get(receiver);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("new-friend-request", {
-        sender,
-        senderDetails: senderUser,
-        count: receiverCount,
-      });
-    }
+    io.to(`user:${receiver}`).emit("new-friend-request", {
+      sender,
+      senderDetails: senderUser,
+      count: receiverCount,
+    });
 
     res.json({ success: true });
   } catch (err) {
@@ -442,20 +441,14 @@ app.post("/api/friendrequest", async (req, res) => {
 
     // Real-time socket notification for updated badge counts
     const remainingCountA = await FriendRequest.countDocuments({ receiver: userA });
-    const socketA = onlineUsers.get(userA);
-    if (socketA) {
-      io.to(socketA).emit("friend-request-count-updated", { count: remainingCountA });
-    }
+    io.to(`user:${userA}`).emit("friend-request-count-updated", { count: remainingCountA });
 
     const remainingCountB = await FriendRequest.countDocuments({ receiver: userB });
-    const socketB = onlineUsers.get(userB);
-    if (socketB) {
-      io.to(socketB).emit("friend-request-count-updated", { count: remainingCountB });
-      io.to(socketB).emit("friend-request-resolved", {
-        by: userA,
-        accepted,
-      });
-    }
+    io.to(`user:${userB}`).emit("friend-request-count-updated", { count: remainingCountB });
+    io.to(`user:${userB}`).emit("friend-request-resolved", {
+      by: userA,
+      accepted,
+    });
 
     if (!accepted) {
       return res.json({ success: true });
@@ -540,7 +533,9 @@ const httpServer = createServer(app);
 
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || "*",
+    origin: (origin, callback) => {
+      callback(null, true);
+    },
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -550,12 +545,16 @@ const io = new Server(httpServer, {
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
 
-  socket.on("user-online", async (username) => {
+  const handleRegisterUser = async (username) => {
     if (!username) return;
     const cleanUser = username.toLowerCase().trim();
-    console.log(`${cleanUser} is now online`);
+    console.log(`${cleanUser} is now online (socket: ${socket.id})`);
 
-    onlineUsers.set(cleanUser, socket.id);
+    socket.join(`user:${cleanUser}`);
+    if (!onlineUsers.has(cleanUser)) {
+      onlineUsers.set(cleanUser, new Set());
+    }
+    onlineUsers.get(cleanUser).add(socket.id);
     userSessions.set(socket.id, { username: cleanUser });
 
     await updateLastSeen(cleanUser);
@@ -564,7 +563,10 @@ io.on("connection", (socket) => {
       username: cleanUser,
       status: "online",
     });
-  });
+  };
+
+  socket.on("user-online", handleRegisterUser);
+  socket.on("register-user", handleRegisterUser);
 
   socket.on("join-chat", async (data) => {
     const { chatId, username } = data;
@@ -572,12 +574,16 @@ io.on("connection", (socket) => {
 
     const cleanUser = username ? username.toLowerCase().trim() : "";
     socket.join(chatId);
-    console.log(`User ${cleanUser} joined chat room: ${chatId}`);
+    console.log(`User ${cleanUser} joined chat room: ${chatId} (socket: ${socket.id})`);
 
     if (cleanUser) {
-      onlineUsers.set(cleanUser, socket.id);
+      socket.join(`user:${cleanUser}`);
+      if (!onlineUsers.has(cleanUser)) {
+        onlineUsers.set(cleanUser, new Set());
+      }
+      onlineUsers.get(cleanUser).add(socket.id);
 
-      const session = userSessions.get(socket.id);
+      const session = userSessions.get(socket.id) || {};
       userSessions.set(socket.id, {
         ...session,
         username: cleanUser,
@@ -618,6 +624,106 @@ io.on("connection", (socket) => {
     socket.to(data.chatId).emit("user-typing", data);
   });
 
+  // ==========================================
+  // WebRTC Audio & Video Calling Signaling
+  // ==========================================
+  // Initiate call to another peer
+  socket.on("call-user", async (data) => {
+    const { to, from, callType } = data;
+    if (!to || !from) return;
+
+    const cleanTo = to.toLowerCase().trim();
+    const cleanFrom = from.toLowerCase().trim();
+    const isRecipientOnline = onlineUsers.has(cleanTo) && onlineUsers.get(cleanTo).size > 0;
+
+    console.log(`Call initiated from ${cleanFrom} to ${cleanTo} (${callType}). Online: ${isRecipientOnline}`);
+
+    if (!isRecipientOnline) {
+      socket.emit("call-user-offline", { to: cleanTo });
+      return;
+    }
+
+    const callerUser = await User.findOne({ username: cleanFrom });
+
+    io.to(`user:${cleanTo}`).emit("incoming-call", {
+      from: cleanFrom,
+      callType: callType || "video",
+      callerDetails: callerUser || { username: cleanFrom },
+    });
+  });
+
+  // Recipient answers call
+  socket.on("accept-call", (data) => {
+    const { to, from } = data;
+    const cleanTo = to.toLowerCase().trim();
+    const cleanFrom = from.toLowerCase().trim();
+    console.log(`Call accepted by ${cleanFrom} for ${cleanTo}`);
+
+    io.to(`user:${cleanTo}`).emit("call-accepted", {
+      from: cleanFrom,
+    });
+  });
+
+  // Recipient rejects or busy
+  socket.on("reject-call", (data) => {
+    const { to, from, reason } = data;
+    const cleanTo = to.toLowerCase().trim();
+    const cleanFrom = from.toLowerCase().trim();
+    console.log(`Call rejected by ${cleanFrom} for ${cleanTo} (reason: ${reason})`);
+
+    io.to(`user:${cleanTo}`).emit("call-rejected", {
+      from: cleanFrom,
+      reason: reason || "declined",
+    });
+  });
+
+  // Either party ends the call
+  socket.on("end-call", (data) => {
+    const { to, from } = data;
+    const cleanTo = to ? to.toLowerCase().trim() : "";
+    const cleanFrom = from ? from.toLowerCase().trim() : "";
+    console.log(`Call ended by ${cleanFrom} for ${cleanTo}`);
+
+    if (cleanTo) {
+      io.to(`user:${cleanTo}`).emit("call-ended", {
+        from: cleanFrom,
+      });
+    }
+  });
+
+  // Forward WebRTC Offer
+  socket.on("webrtc-offer", (data) => {
+    const { to, from, offer } = data;
+    const cleanTo = to.toLowerCase().trim();
+    const cleanFrom = from.toLowerCase().trim();
+    io.to(`user:${cleanTo}`).emit("webrtc-offer", {
+      from: cleanFrom,
+      offer,
+    });
+  });
+
+  // Forward WebRTC Answer
+  socket.on("webrtc-answer", (data) => {
+    const { to, from, answer } = data;
+    const cleanTo = to.toLowerCase().trim();
+    const cleanFrom = from.toLowerCase().trim();
+    io.to(`user:${cleanTo}`).emit("webrtc-answer", {
+      from: cleanFrom,
+      answer,
+    });
+  });
+
+  // Forward ICE Candidate
+  socket.on("webrtc-ice-candidate", (data) => {
+    const { to, from, candidate } = data;
+    const cleanTo = to.toLowerCase().trim();
+    const cleanFrom = from.toLowerCase().trim();
+    io.to(`user:${cleanTo}`).emit("webrtc-ice-candidate", {
+      from: cleanFrom,
+      candidate,
+    });
+  });
+
   socket.on("disconnect", async () => {
     console.log("User disconnected:", socket.id);
 
@@ -625,23 +731,33 @@ io.on("connection", (socket) => {
     if (session && session.username) {
       const { username, chatId } = session;
 
-      onlineUsers.delete(username);
-      await updateLastSeen(username);
+      if (onlineUsers.has(username)) {
+        const userSockets = onlineUsers.get(username);
+        userSockets.delete(socket.id);
 
-      if (chatId) {
-        socket.to(chatId).emit("user-status-changed", {
-          username,
-          isOnline: false,
-        });
+        if (userSockets.size === 0) {
+          onlineUsers.delete(username);
+          await updateLastSeen(username);
+
+          if (chatId) {
+            socket.to(chatId).emit("user-status-changed", {
+              username,
+              isOnline: false,
+            });
+          }
+
+          io.emit("user-status-change", {
+            username,
+            status: "offline",
+          });
+
+          console.log(`${username} is now fully offline`);
+        } else {
+          console.log(`${username} still has ${userSockets.size} active socket connection(s)`);
+        }
       }
 
-      io.emit("user-status-change", {
-        username,
-        status: "offline",
-      });
-
       userSessions.delete(socket.id);
-      console.log(`${username} is now offline`);
     }
   });
 
@@ -653,7 +769,7 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 3001;
-httpServer.listen(PORT, () => {
-  console.log(`🚀 Backend server running on port ${PORT}`);
+httpServer.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Backend server running on port ${PORT} (0.0.0.0)`);
   console.log("📡 Socket.IO ready for connections");
 });

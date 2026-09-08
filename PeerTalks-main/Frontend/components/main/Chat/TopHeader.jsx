@@ -3,8 +3,8 @@ import Profilepic from "@/components/Profilepic";
 import Link from "next/link";
 import axios from "axios";
 import { useEffect, useState, useCallback } from "react";
-import { io } from "socket.io-client";
-import { HiOutlineUserCircle } from "react-icons/hi2";
+import socket from "@/lib/socket";
+import { HiOutlineUserCircle, HiOutlinePhone, HiOutlineVideoCamera } from "react-icons/hi2";
 import { apiUrl } from "@/lib/api";
 import ContactInfoDrawer from "./ContactInfoDrawer";
 
@@ -81,19 +81,16 @@ export default function TopHeader({ chatid }) {
   useEffect(() => {
     if (!user?.username) return;
 
-    const BACKEND_URL = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
-    const socket = io(BACKEND_URL, {
-      transports: ['websocket', 'polling']
-    });
+    if (!socket.connected) {
+      socket.connect();
+    }
 
-    socket.on("connect", () => {
-      const currentUser = localStorage.getItem("username");
-      if (currentUser) {
-        socket.emit("join-chat", { chatId: chatid, username: currentUser });
-      }
-    });
+    const currentUser = localStorage.getItem("username");
+    if (currentUser) {
+      socket.emit("join-chat", { chatId: chatid, username: currentUser });
+    }
 
-    socket.on("user-status-changed", (data) => {
+    const handleStatusChanged = (data) => {
       const { username: statusUsername, isOnline: userIsOnline } = data;
       if (user?.username && statusUsername === user.username) {
         setIsOnline(userIsOnline);
@@ -101,13 +98,14 @@ export default function TopHeader({ chatid }) {
           fetchUserStatus(statusUsername);
         }
       }
-    });
+    };
+
+    socket.on("user-status-changed", handleStatusChanged);
 
     return () => {
-      socket.off("user-status-changed");
-      socket.disconnect();
+      socket.off("user-status-changed", handleStatusChanged);
     };
-  }, [chatid, user, fetchUserStatus]);
+  }, [chatid, user?.username, fetchUserStatus]);
 
   const displayName = [user.fname, user.lname].filter(Boolean).join(" ") || user.username || "Peer";
 
@@ -163,13 +161,46 @@ export default function TopHeader({ chatid }) {
           </div>
         </button>
 
-        {/* Action button */}
+        {/* Action buttons: Voice Call, Video Call, and Contact Info */}
         {user.username && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Voice Call Button */}
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent("start-peer-call", {
+                    detail: { targetUser: user, callType: "audio" },
+                  })
+                );
+              }}
+              className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-primary-50 dark:hover:bg-primary-950/40 hover:text-primary-600 dark:hover:text-primary-400 hover:border-primary-200 dark:hover:border-primary-800 transition-all shadow-xs active:scale-95"
+              title={`Start voice call with ${displayName}`}
+            >
+              <HiOutlinePhone className="w-4 h-4" />
+            </button>
+
+            {/* Video Call Button */}
+            <button
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent("start-peer-call", {
+                    detail: { targetUser: user, callType: "video" },
+                  })
+                );
+              }}
+              className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-primary-50 dark:bg-primary-950/40 border border-primary-200/80 dark:border-primary-800/80 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/60 transition-all shadow-xs active:scale-95"
+              title={`Start video call with ${displayName}`}
+            >
+              <HiOutlineVideoCamera className="w-4 h-4" />
+            </button>
+
+            {/* Contact Info Button */}
             <button
               type="button"
               onClick={() => setIsDrawerOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors shadow-xs active:scale-95"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors shadow-xs active:scale-95"
               title="View Contact Info"
             >
               <HiOutlineUserCircle className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />

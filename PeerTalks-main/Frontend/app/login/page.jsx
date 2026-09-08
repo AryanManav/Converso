@@ -11,7 +11,7 @@ import { apiUrl } from "@/lib/api";
 export default function Login() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   // Clean up any sensitive query params that may have leaked into the URL
@@ -24,7 +24,7 @@ export default function Login() {
   const login = (event) => {
     event.preventDefault();
     setLoading(true);
-    setError(false);
+    setErrorMessage("");
 
     const formData = new FormData(event.target);
     const formObject = {};
@@ -43,12 +43,15 @@ export default function Login() {
           localStorage.setItem("password", formObject.password);
           router.push("/chat");
         } else {
-          setError(true);
+          setErrorMessage(response.data.error || "Incorrect username or password. Please try again.");
         }
       })
       .catch((err) => {
-        console.error(err);
-        setError(true);
+        console.error("Login network error:", err);
+        setErrorMessage(
+          err.response?.data?.error ||
+          "Network Error: Could not connect to backend server. Make sure the backend is running!"
+        );
       })
       .finally(() => {
         setLoading(false);
@@ -79,9 +82,9 @@ export default function Login() {
         </div>
 
         {/* Error Alert */}
-        {error && (
-          <div className="mb-6 p-3.5 bg-rose-50 border border-rose-200/70 rounded-xl text-xs font-medium text-rose-700 flex items-center justify-center animate-wiggle">
-            Incorrect username or password. Please try again.
+        {errorMessage && (
+          <div className="mb-6 p-3.5 bg-rose-50 border border-rose-200/70 rounded-xl text-xs font-medium text-rose-700 flex items-center justify-center text-center animate-wiggle">
+            {errorMessage}
           </div>
         )}
 
