@@ -96,39 +96,39 @@ export default function ContactInfoDrawer({ isOpen, onClose, user, isOnline, las
           </div>
 
           {/* About / Bio */}
-          <div className="bg-zinc-50/70 dark:bg-zinc-850 rounded-2xl p-4 border border-zinc-100 dark:border-zinc-800">
-            <span className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mb-2">
+          <div className="bg-zinc-100/70 dark:bg-zinc-800/80 rounded-2xl p-4 border border-zinc-200/80 dark:border-zinc-700/80 shadow-2xs">
+            <span className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-2">
               About
             </span>
-            <p className="text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed italic">
+            <p className="text-xs text-zinc-800 dark:text-zinc-100 leading-relaxed font-medium">
               {user?.bio ? `"${user.bio}"` : "No bio provided yet."}
             </p>
           </div>
 
           {/* Peer Details */}
           <div className="space-y-3">
-            <span className="block text-[11px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
+            <span className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
               Profile Details
             </span>
 
             {/* Gender */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50/50 dark:bg-zinc-850/80 border border-zinc-100 dark:border-zinc-800 text-xs">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-100/70 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/80 text-xs">
               <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
                 <HiOutlineUser className="w-4 h-4 text-zinc-400" />
                 Gender
               </span>
-              <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                 {user?.gender || "Not specified"}
               </span>
             </div>
 
             {/* Member Since */}
-            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-50/50 dark:bg-zinc-850/80 border border-zinc-100 dark:border-zinc-800 text-xs">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-100/70 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/80 text-xs">
               <span className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
                 <HiOutlineCalendar className="w-4 h-4 text-zinc-400" />
                 Joined PeerTalks
               </span>
-              <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                 {memberSince}
               </span>
             </div>
@@ -138,7 +138,7 @@ export default function ContactInfoDrawer({ isOpen, onClose, user, isOnline, las
           <div className="pt-2">
             <button
               onClick={copyUsername}
-              className="w-full py-3 px-4 rounded-xl bg-zinc-100 hover:bg-zinc-200/80 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
+              className="w-full py-3 px-4 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-100 text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-xs"
             >
               {copied ? (
                 <>

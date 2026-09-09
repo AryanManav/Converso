@@ -455,7 +455,7 @@ export default function MyProfileDrawer({ isOpen, onClose, username }) {
             {/* First & Last Name */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1">
                   First Name
                 </label>
                 <input
@@ -464,12 +464,12 @@ export default function MyProfileDrawer({ isOpen, onClose, username }) {
                   value={user.fname || ""}
                   onChange={handleChange}
                   placeholder="First name"
-                  className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 focus:bg-white dark:focus:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                  className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:bg-white dark:focus:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1">
                   Last Name
                 </label>
                 <input
@@ -478,14 +478,14 @@ export default function MyProfileDrawer({ isOpen, onClose, username }) {
                   value={user.lname || ""}
                   onChange={handleChange}
                   placeholder="Last name"
-                  className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-zinc-100 focus:bg-white dark:focus:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+                  className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:bg-white dark:focus:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
                 />
               </div>
             </div>
 
             {/* Bio */}
             <div>
-              <label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1">
                 About / Bio
               </label>
               <textarea
@@ -494,13 +494,13 @@ export default function MyProfileDrawer({ isOpen, onClose, username }) {
                 value={user.bio || ""}
                 onChange={handleChange}
                 placeholder="Write a short bio about yourself..."
-                className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 text-xs text-zinc-900 dark:text-zinc-100 focus:bg-white dark:focus:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-none"
+                className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:bg-white dark:focus:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-none"
               />
             </div>
 
             {/* Gender Selection */}
             <div>
-              <label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+              <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1.5">
                 Gender
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -511,8 +511,8 @@ export default function MyProfileDrawer({ isOpen, onClose, username }) {
                     onClick={() => setUser((prev) => ({ ...prev, gender: g }))}
                     className={`py-2 px-3 text-xs rounded-xl font-medium border transition-all ${
                       user.gender === g
-                        ? "border-primary-600 bg-primary-50 dark:bg-primary-950/40 text-primary-700 dark:text-primary-300 font-semibold shadow-xs"
-                        : "border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-750"
+                        ? "border-primary-500 bg-primary-50 dark:bg-primary-950/60 text-primary-700 dark:text-primary-300 font-bold shadow-xs ring-1 ring-primary-500/30"
+                        : "border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700"
                     }`}
                   >
                     {g}
@@ -523,12 +523,13 @@ export default function MyProfileDrawer({ isOpen, onClose, username }) {
 
             {/* Date of Birth Selector */}
             <div>
-              <label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+              <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-300 uppercase tracking-wider mb-1.5">
                 Date of Birth
               </label>
               <DateOfBirthSelector
                 value={user.DOB || ""}
                 onChange={(dob) => setUser((prev) => ({ ...prev, DOB: dob }))}
+                label=""
               />
             </div>
 
@@ -541,7 +542,7 @@ export default function MyProfileDrawer({ isOpen, onClose, username }) {
                   setIsEditing(false);
                 }}
                 disabled={saving}
-                className="flex-1 py-2.5 px-4 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold transition-all active:scale-95 disabled:opacity-50"
+                className="flex-1 py-2.5 px-4 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-semibold transition-all active:scale-95 disabled:opacity-50"
               >
                 Cancel
               </button>

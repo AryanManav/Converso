@@ -1,8 +1,8 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
 
-export default function DateOfBirthSelector({ value = "", onChange, label = "Date of Birth" }) {
+export default function DateOfBirthSelector({ value = "", onChange, label = "" }) {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 95 }, (_, i) => currentYear - i); // 2026 down to 1932
 
@@ -63,7 +63,7 @@ export default function DateOfBirthSelector({ value = "", onChange, label = "Dat
   return (
     <div>
       {label && (
-        <label className="block text-xs font-semibold text-zinc-700 uppercase tracking-wider mb-1.5">
+        <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider mb-1.5">
           {label}
         </label>
       )}
@@ -72,11 +72,11 @@ export default function DateOfBirthSelector({ value = "", onChange, label = "Dat
         <select
           value={month}
           onChange={(e) => handleUpdate(day, e.target.value, year)}
-          className="w-full bg-zinc-50/70 border border-zinc-200 rounded-xl px-2.5 py-2.5 text-sm text-zinc-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all cursor-pointer truncate"
+          className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-2.5 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:bg-white dark:focus:bg-zinc-750 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all cursor-pointer truncate"
         >
-          <option value="">Month</option>
+          <option value="" className="bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">Month</option>
           {months.map((m) => (
-            <option key={m.value} value={m.value}>
+            <option key={m.value} value={m.value} className="bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
               {m.label}
             </option>
           ))}
@@ -86,11 +86,11 @@ export default function DateOfBirthSelector({ value = "", onChange, label = "Dat
         <select
           value={day}
           onChange={(e) => handleUpdate(e.target.value, month, year)}
-          className="w-full bg-zinc-50/70 border border-zinc-200 rounded-xl px-2.5 py-2.5 text-sm text-zinc-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all cursor-pointer"
+          className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-2.5 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:bg-white dark:focus:bg-zinc-750 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all cursor-pointer"
         >
-          <option value="">Day</option>
+          <option value="" className="bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">Day</option>
           {days.map((d) => (
-            <option key={d} value={d}>
+            <option key={d} value={d} className="bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
               {d}
             </option>
           ))}
@@ -100,20 +100,20 @@ export default function DateOfBirthSelector({ value = "", onChange, label = "Dat
         <select
           value={year}
           onChange={(e) => handleUpdate(day, month, e.target.value)}
-          className="w-full bg-zinc-50/70 border border-zinc-200 rounded-xl px-2.5 py-2.5 text-sm text-zinc-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all cursor-pointer font-medium"
+          className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-2.5 py-2.5 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 focus:bg-white dark:focus:bg-zinc-750 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all cursor-pointer font-medium"
         >
-          <option value="">Year</option>
+          <option value="" className="bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">Year</option>
           {years.map((y) => (
-            <option key={y} value={y}>
+            <option key={y} value={y} className="bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
               {y}
             </option>
           ))}
         </select>
       </div>
-      <div className="flex items-center justify-between mt-1 text-[11px] text-zinc-400">
+      <div className="flex items-center justify-between mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
         <span>Quickly pick your birth year & date</span>
         {year && month && day && (
-          <span className="text-primary-600 font-medium">{year}-{month}-{day}</span>
+          <span className="text-primary-600 dark:text-primary-400 font-semibold">{year}-{month}-{day}</span>
         )}
       </div>
     </div>

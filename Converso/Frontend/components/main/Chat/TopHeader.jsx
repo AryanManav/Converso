@@ -111,7 +111,7 @@ export default function TopHeader({ chatid }) {
 
   return (
     <>
-      <div className="h-16 px-6 border-b border-zinc-200/80 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md flex items-center justify-between shrink-0 select-none z-10 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+      <div className="h-16 px-6 border-b border-zinc-200/70 dark:border-zinc-800/80 bg-white/85 dark:bg-zinc-900/85 backdrop-blur-xl flex items-center justify-between shrink-0 select-none z-10 shadow-xs">
         {/* Clickable User Info Header */}
         <button
           type="button"
@@ -119,7 +119,7 @@ export default function TopHeader({ chatid }) {
           className="flex items-center gap-3 text-left group hover:opacity-90 transition-opacity focus:outline-none"
           title="Click to view contact info"
         >
-          {/* Avatar with Status Pip */}
+          {/* Avatar with Animated Pulsing Status Beacon */}
           <div className="relative">
             <Profilepic
               gender={user.gender}
@@ -127,20 +127,23 @@ export default function TopHeader({ chatid }) {
               profilePic={user.profilePic}
               className="w-10 h-10 shadow-xs group-hover:ring-2 ring-primary-500/40 rounded-full transition-all"
             />
-            <span
-              className={`absolute bottom-0 right-0 w-3 h-3 rounded-full ring-2 ring-white dark:ring-zinc-900 ${
-                isOnline
-                  ? "bg-emerald-500 animate-pulseSubtle"
-                  : "bg-zinc-300 dark:bg-zinc-600"
-              }`}
-              title={isOnline ? "Online" : "Offline"}
-            />
+            {isOnline ? (
+              <span className="absolute bottom-0 right-0 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 ring-2 ring-white dark:ring-zinc-900 shadow-xs" />
+              </span>
+            ) : (
+              <span
+                className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-zinc-300 dark:bg-zinc-600 ring-2 ring-white dark:ring-zinc-900"
+                title="Offline"
+              />
+            )}
           </div>
 
           {/* User Info */}
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 capitalize group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+              <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 capitalize group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                 {displayName}
               </h2>
               {user.username && (
@@ -151,10 +154,15 @@ export default function TopHeader({ chatid }) {
             </div>
             <div className="flex items-center gap-1.5 text-xs">
               <span
-                className={`font-medium ${
-                  isOnline ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-400 dark:text-zinc-500"
+                className={`font-medium flex items-center gap-1.5 ${
+                  isOnline
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-zinc-400 dark:text-zinc-500"
                 }`}
               >
+                {isOnline && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                )}
                 {isOnline ? "Active now" : `Last seen ${formatLastSeen(lastSeen)}`}
               </span>
             </div>
@@ -164,7 +172,8 @@ export default function TopHeader({ chatid }) {
         {/* Action buttons: Voice Call, Video Call, and Contact Info */}
         {user.username && (
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Voice Call Button */}
+            {/* Voice Call & Video Call temporarily commented out */}
+            {/*
             <button
               type="button"
               onClick={() => {
@@ -180,7 +189,6 @@ export default function TopHeader({ chatid }) {
               <HiOutlinePhone className="w-4 h-4" />
             </button>
 
-            {/* Video Call Button */}
             <button
               type="button"
               onClick={() => {
@@ -195,6 +203,7 @@ export default function TopHeader({ chatid }) {
             >
               <HiOutlineVideoCamera className="w-4 h-4" />
             </button>
+            */}
 
             {/* Contact Info Button */}
             <button
